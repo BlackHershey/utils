@@ -64,6 +64,8 @@ def instructions(series_desc, output_file=None):
 		'TE_vol': float(ds.EchoTime)
 	}
 
+	instructions['dwell'] = 1000 / (float(ds[0x19,0x1028].value) * instructions['nx'] )
+
 	slice_timing = ds[0x19,0x1029].value
 	
 	# slice_timing only exists for multiband
