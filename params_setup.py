@@ -17,7 +17,7 @@ def sort_dicoms(dicom_dir):
 # helper function to read the output of (pseudo_)dcm_sort to map scan numbers to descriptions 
 def read_studies_file(studies_file):
 	scans = []
-	with open(studies_file, 'rb') as f:
+	with open(studies_file, 'r') as f:
 		for line in f:
 			cols = line.split()
 

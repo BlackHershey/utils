@@ -65,21 +65,22 @@ def instructions(series_desc, output_file=None):
 	}
 
 	slice_timing = ds[0x19,0x1029].value
-	MBfac = slice_timing.count(0) # get number of bands
-	instructions['MBfac'] = MBfac
-
-	num_slices = len(slice_timing)
-	slice_time_tuples = sorted([ (time, slc) for slc, time in enumerate(slice_timing[:num_slices / MBfac]) ])
-	slice_order = [ tup[1]+1 for tup in slice_time_tuples ]
 	
-	if slice_order == range(1, num_slices+1): # check if sequential
-		instructions['interleave'] = '-S'
-	elif all(slc % 2 == 0 for slc in slice_order[:num_slices/2]): # check for Siemen's interleave (starts with evens if even number of slices)
+	# slice_timing only exists for multiband
+	if slice_timing:	
+		MBfac = slice_timing.count(0) # get number of bands
+		instructions['MBfac'] = MBfac
+
+		num_slices = len(slice_timing)
+		slice_time_tuples = sorted([ (time, slc) for slc, time in enumerate(slice_timing[:num_slices // MBfac]) ])
+		slice_order = [ tup[1]+1 for tup in slice_time_tuples ]
+
+		if slice_order == range(1, num_slices+1): # check if sequential
+			instructions['interleave'] = '-S'
+		elif all(slc % 2 == 0 for slc in slice_order[:len(slice_order) // 2]): # check for Siemen's interleave (starts with evens if even number of slices)
 			instructions['Siemens_interleave'] = 1
-	elif all(slc % 2 != 0 for slc in slice_order[:num_slices/2]): # check for regular interleave (starts with odd slices)
-			instructions['Siemens_interleave'] = 0
-	else:			
-		instructions['seqstr'] = ','.join(map(str,slice_order)) # otherwise, supply slice ordering string
+		elif not all(slc % 2 != 0 for slc in slice_order[:len(slice_order) // 2]): # if not regular interleave (starts with odd slices and is enabled if no other interleave param is set), supply slice ordering
+			instructions['seqstr'] = ','.join(map(str,slice_order))
 
 	if not output_file:
 		output_file = '../{}.params'.format(os.path.basename(os.path.abspath('..')))

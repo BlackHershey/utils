@@ -12,7 +12,7 @@ def convert_to_csh(var, value):
 
 # helper function to write csh variables to file
 def write_file(filename, params):
-	with open(filename, 'wb') as f:
+	with open(filename, 'w') as f:
 		for key in params.keys():
 			f.write(convert_to_csh(key, params[key]) + '\n')
 	return
