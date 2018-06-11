@@ -4,5 +4,7 @@
 		"ABCD_T2w_SPC_vNav": "tse",
 		"fMRI_AP_2p4mm_MB4_tr1230_te33": "fstd"
 	},
-	"irun": "fstd"
+	"irun": {
+		"fMRI_AP_2p4mm_MB4_tr1230_te33": "<label>" # set bold directory label (i.e. bold<label>#)
+	}
 }

@@ -1,16 +1,22 @@
-# assume for now that dicoms have been downloaded and stored in the appropriate location
-
 import argparse
 import json
+import pydicom
+from instructions import get_first_dicom
 from params_common import write_file
 from os import chdir, listdir
 from subprocess import call
 
 
-def sort_dicoms(dicom_dir):
-	if [ f for f in listdir(dicom_dir) if f.endswith('.dcm') ]: # if dicoms are in the patid dir
+# determine if dicom directory structure is flat or nested
+#	if dicom_dir contains dcm files, assume flat; otherwise, nested
+def is_flat(dicom_dir):
+	return [ f for f in listdir(dicom_dir) if f.endswith('.dcm') ] != []
+
+
+def sort_dicoms(dicom_dir, is_flat):
+	if is_flat:
 		call(['dcm_sort', dicom_dir])
-	else: # assume nested scan structure
+	else: 
 		call(['pseudo_dcm_sort.csh', dicom_dir, '-s'])
 	
 
@@ -27,17 +33,20 @@ def read_studies_file(studies_file):
 
 
 # generate params file from studies file mappings
-def gen_params_file(patid, dicom_dir, study_config, sort=False,):
+def gen_params_file(patid, dicom_dir, study_config, sort=False, duplicates=None):
 	chdir(patid)
 	
+	flat = is_flat(dicom_dir)
+
 	if sort:
-		sort_dicoms(dicom_dir)
+		sort_dicoms(dicom_dir, flat)
 
 	studies_file = '.'.join([dicom_dir, 'studies', 'txt'])
 	scans = read_studies_file(studies_file)
 
 	params = {
-		'patid': patid	
+		'patid': patid,
+		'irun': []
 	}
 	
 	with open(study_config) as config_file:
@@ -48,23 +57,33 @@ def gen_params_file(patid, dicom_dir, study_config, sort=False,):
 	for val in scan_mappings.values():
 		params[val] = []
 
+	irun_mapping = config['irun']
+	irun_series = list(irun_mapping.keys())
+	label_counts = { k:0 for k in list(irun_mapping.values()) }
 
 	for scan in scans:
 		scan_number = scan[0]
 		series_desc = scan[1]
-		try:
-			var = scan_mappings[series_desc] # variable is value of series description in config
-			params[var].append(scan_number) # set variable to the current scan number
-		except:
+
+		# remove unwanted duplicate images if present
+		if duplicates and series_desc not in irun_series:
+			img_type = pydicom.read_file(get_first_dicom(scan_number, flat)).ImageType
+			if  ('NORM' in img_type and duplicates == 'orig') or ('NORM' not in img_type and duplicates == 'norm'):
+				continue
+		
+		if series_desc not in list(scan_mappings.keys()):
 			print('Scan type not found in config:', series_desc)
+			continue
 
-	
-	for val in params.values():
-		if isinstance(val, list):
-			val.sort(key=lambda x: int(x))
+		var = scan_mappings[series_desc] # variable is value of series description in config
+		params[var].append(scan_number) # set variable to the current scan number
+		
+		if series_desc in irun_series:
+			label = irun_mapping[series_desc]
+			label_counts[label] += 1
+			params['irun'].append(label + str(label_counts[label]))
 
-	params['irun'] = [ str(x) for x in range(1,len(params[config['irun']])+1) ]
-	
+
 	params_file = '.'.join([patid, 'params']) 
 	write_file(params_file, params)
 
@@ -78,9 +97,10 @@ if __name__ == '__main__':
 	parser.add_argument('dicom_dir', help='top-level dicom directory (e.g. DICOM, SCANS) directory')
 	parser.add_argument('study_config', help='json config file containing series desc to params variable mapping (see study_config_template.json)')
 	parser.add_argument('-s', '--sort', action='store_true', help='run dcm_sort as part of setup process')
+	parser.add_argument('-d', '--duplicates', choices=['orig', 'norm'], help='if there are duplicate scans, which Image Type to use (defualt use all)')	
 	args = parser.parse_args()
 
-	gen_params_file(args.patid, args.dicom_dir, args.study_config, args.sort)
+	gen_params_file(args.patid, args.dicom_dir, args.study_config, args.sort, args.duplicates)
 
 
 
