@@ -3,7 +3,8 @@ import json
 import pydicom
 from instructions import get_first_dicom
 from params_common import write_file
-from os import chdir, listdir
+from os import chdir, getcwd, listdir
+from os.path import dirname, join
 from subprocess import call
 
 
@@ -33,7 +34,7 @@ def read_studies_file(studies_file):
 
 
 # generate params file from studies file mappings
-def gen_params_file(patid, dicom_dir, study_config, sort=False, duplicates=None):
+def gen_params_file(patid, dicom_dir, study_config, sort=False, duplicates=None, day1_patid=None):
 	chdir(patid)
 	
 	flat = is_flat(dicom_dir)
@@ -52,10 +53,17 @@ def gen_params_file(patid, dicom_dir, study_config, sort=False, duplicates=None)
 	with open(study_config) as config_file:
 		config = json.load(config_file)
 
-
 	scan_mappings = config['series_desc_mapping']
 	for val in scan_mappings.values():
 		params[val] = []
+
+	if day1_patid:
+		params['day1_patid'] = day1_patid
+		params['day1_path'] = join(dirname(getcwd()), '${day1_patid}', 'atlas')
+		if 'mprs' in params:
+			del params['mprs']
+		if 'tse' in params:		
+			del params['tse']
 
 	irun_mapping = config['irun']
 	irun_series = list(irun_mapping.keys())
@@ -98,10 +106,8 @@ if __name__ == '__main__':
 	parser.add_argument('study_config', help='json config file containing series desc to params variable mapping (see study_config_template.json)')
 	parser.add_argument('-s', '--sort', action='store_true', help='run dcm_sort as part of setup process')
 	parser.add_argument('-d', '--duplicates', choices=['orig', 'norm'], help='if there are duplicate scans, which Image Type to use (defualt use all)')	
+	parser.add_argument('--day1_patid', help='patient directory for first session (if patid is not patient\'s first session)')
 	args = parser.parse_args()
 
-	gen_params_file(args.patid, args.dicom_dir, args.study_config, args.sort, args.duplicates)
+	gen_params_file(args.patid, args.dicom_dir, args.study_config, args.sort, args.duplicates, args.day1_patid)
 
-
-
-		
