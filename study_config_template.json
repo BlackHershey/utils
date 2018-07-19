@@ -1,4 +1,5 @@
-{
+{	
+	"cnda_project_id": "NP1101",
 	"series_desc_mapping": {
 		"ABCD_T1w_MPR_vNav": "mprs",
 		"ABCD_T2w_SPC_vNav": "tse",
