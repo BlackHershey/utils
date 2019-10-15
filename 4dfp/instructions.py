@@ -9,23 +9,26 @@ from params_common import write_file
 from sys import exit, stderr
 
 scan_number_pattern = '(?:\w*\.){3}(\d+)\..*'
-flat_path_template = '*/*.{}.1.*.dcm'
-nested_path_template = '*/{}/DICOM/*.1.*.dcm'
+flat_path_template = '*/*.{}.1.*dcm'
+nested_path_template = '*/{}/DICOM/*.1.*dcm'
 
 
-def get_first_dicom(scan_number, flat):
+def get_first_dicom(scan_number, flat, rootdir=None):
 	dcm_path_template = flat_path_template if flat else nested_path_template
-	return glob.glob(dcm_path_template.format(scan_number))[0]
+	dcm_path = dcm_path_template.format(scan_number)
+	dcms_old_format = glob.glob(dcm_path)
+	dcms = dcms_old_format if dcms_old_format else glob.glob(dcm_path.replace('.', '-'))
+	return dcms[0]
 
 
 def get_bold_header_data(series_desc):
 	ds = None
-	
+
 	descs = set()
 	studies_file = glob.glob('*.studies.txt')
 
-	flat_files = [ f for f in glob.glob(flat_path_template.format('*')) if not f.startswith('study') ]	
-	
+	flat_files = [ f for f in glob.glob(flat_path_template.format('*')) if not f.startswith('study') ]
+
 	if not studies_file: # if dicoms are not sorted, search headers to find bold scans
 		dcms = flat_files if flat_files else glob.glob(nested_path_template.format('*'))
 
@@ -43,7 +46,7 @@ def get_bold_header_data(series_desc):
 			for line in f:
 				if series_desc in line:
 					return pydicom.read_file(get_first_dicom(line.split(' ')[0], flat_files))
-	
+
 	stderr.write('No BOLD dicoms found!')
 	print(descs)
 	exit(1)
@@ -67,9 +70,9 @@ def instructions(series_desc, output_file=None):
 	instructions['dwell'] = 1000 / (float(ds[0x19,0x1028].value) * instructions['nx'] )
 
 	slice_timing = ds[0x19,0x1029].value
-	
+
 	# slice_timing only exists for multiband
-	if slice_timing:	
+	if slice_timing:
 		MBfac = slice_timing.count(0) # get number of bands
 		instructions['MBfac'] = MBfac
 
@@ -86,7 +89,7 @@ def instructions(series_desc, output_file=None):
 
 	if not output_file:
 		output_file = '../{}.params'.format(os.path.basename(os.path.abspath('..')))
-	write_file(output_file, instructions)		
+	write_file(output_file, instructions)
 
 
 if __name__ == '__main__':

@@ -2,8 +2,6 @@ import argparse
 import numpy as np
 from scipy import stats
 
-import matplotlib
-matplotlib.use('Qt4Agg') # must be set prior to pyplot import
 from matplotlib import pyplot
 
 
@@ -21,9 +19,7 @@ def plot_values(value_file, thresh=None, dvars=False, run=None, num_runs=None):
 		start = (run - 1) * num_frames 
 		vals = vals[start:start+num_frames]
 
-	vals = [ x for x in vals if x != 500 ]
-
-	pyplot.plot(vals)
+	pyplot.plot([ val if val != 500 else np.nan for val in vals])
 
 	if dvars and not thresh:
 		thresh = find_dvar_crit(vals)
