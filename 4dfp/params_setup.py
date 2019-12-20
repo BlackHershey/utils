@@ -5,7 +5,7 @@ import json
 import pydicom
 import re
 
-from instructions import get_first_dicom
+from instructions import find_dicoms
 from params_common import write_file
 from os import chdir, getcwd, listdir
 from os.path import dirname, islink, join
@@ -32,26 +32,35 @@ def read_studies_file(studies_file):
 
 
 # generate params file from studies file mappings
-def gen_params_file(patid, inpath, study_config, sort=False, duplicates=None, day1_patid=None, outfile=None):
-
+def gen_params_file(patid, study_config, sort=False, inpath='.', duplicates=None, day1_patid=None, outfile=None):
 	with open(study_config) as config_file:
 			config = json.load(config_file)
 
-	chdir(patid)
+	studies_file = next(iter(glob.glob('*.studies.txt')), 0)
 
-	dcms = glob.glob(join(inpath, '*.dcm'))
-	if dcms:
-		flat = True
-		dicom_dir = inpath
-	else:
-		flat = False
-		dcms = glob.glob(join(inpath, '*', '\d+', 'DICOM', '*.dcm'))
-		dicom_dir = re.search('(scans|DICOM)', dcms[0], flags=re.IGNORECASE).group(0)
+	if not studies_file:
+		dcms = find_dicoms(inpath=inpath)
+		if not dcms:
+			print('Error: no dicoms found under current directory. If your dicoms are stored elsewhere, try the --inpath flag')
+			exit(-1)
 
-	if sort:
-		sort_dicoms(dicom_dir, flat)
+		dcm_paths = { os.path.dirname(dcm) for dcm in dcms }
+		if len(dcm_paths) == 1:
+			flat = True
+			dcm_dir = next(dcm_paths)
+		else:
+			flat = False
+			split_dcm_paths = { s.split(os.sep) for s in dcm_paths }
+			dcm_dir_parts = []
+			for i in range(min(len(s) for s in split_dcm_paths)):
+				elems = { p[i] for p in split_dcm_paths }
+				if len(elems) == 1:
+					dcm_dir_parts.append(next(elem))
+				break
+			dcm_dir = os.path.join(dcm_dir_parts)
+		sort_dicoms(dcm_dir, flat)
+		studies_file = os.path.basename(dcm_dir) + '.studies.txt'
 
-	studies_file = glob.glob('*.studies.txt')[0]
 	scans = read_studies_file(studies_file)
 	params = {
 		'patid': patid,
@@ -79,7 +88,7 @@ def gen_params_file(patid, inpath, study_config, sort=False, duplicates=None, da
 
 		# remove unwanted duplicate (non-functional) images if present
 		if duplicates and series_key not in irun_mapping.keys():
-			img_type = pydicom.read_file(get_first_dicom(scan_number, True)).ImageType
+			img_type = pydicom.read_file(find_dicoms(scan_number, True)[0]).ImageType
 			if  ('NORM' in img_type and duplicates == 'orig') or ('NORM' not in img_type and duplicates == 'norm'):
 				continue
 
@@ -94,31 +103,30 @@ def gen_params_file(patid, inpath, study_config, sort=False, duplicates=None, da
 			label_counts[label] += 1
 			params['irun'].append(label + str(label_counts[label]))
 
+	# if processing a scan that shares an MPRAGE with another processing stream, use "cross day" logic to reuse existing atlas transform
+	if not day1_patid and not 'mprs' in params:
+		day1_patid = patid
+
 	# set up cross day parameters if day1_patid specified (i.e. if current session is not subject's first
 	if day1_patid:
 		params['day1_patid'] = day1_patid
-		params['day1_path'] = join(dirname(getcwd()), '${day1_patid}', 'atlas')
-		if 'mprs' in params:
-			del params['mprs']
-		if 'tse' in params:
-			del params['tse']
-
+		params['day1_path'] = glob.glob(join(dirname(study_config), '**', day1_patid, 'atlas'), recursive=True)[0]
+	
 	params_file = outfile if outfile else '.'.join([patid, 'params'])
 	write_file(params_file, params)
 
-	chdir('..')
 	return
 
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('patid')
-	parser.add_argument('inpath', help='path to subject raw data directory')
 	parser.add_argument('study_config', help='json config file containing series desc to params variable mapping (see study_config_template.json)')
 	parser.add_argument('-s', '--sort', action='store_true', help='run dcm_sort as part of setup process')
+	parser.add_argument('--inpath', help='path to subject raw data directory')
 	parser.add_argument('-d', '--duplicates', choices=['orig', 'norm'], help='if there are duplicate scans, which Image Type to use (defualt use all)')
 	parser.add_argument('--day1_patid', help='patient directory for first session (if patid is not patient\'s first session)')
 	parser.add_argument('--outfile', help='name for output file')
 	args = parser.parse_args()
 
-	gen_params_file(args.patid, args.dicom_dir, args.study_config, args.sort, args.duplicates, args.day1_patid, args.outfile)
+	gen_params_file(args.patid, args.study_config, args.sort, args.inpath, args.duplicates, args.day1_patid, args.outfile)
