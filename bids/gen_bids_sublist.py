@@ -12,19 +12,35 @@ def generate_lst(dcm_pattern, sub_regex, ses_regex=None, pad_session=0, outfile=
     match_sub = re.compile(sub_regex)
     match_ses = re.compile(ses_regex) if ses_regex else None
 
-    dcms = [ dcm for pattern in dcm_pattern for dcm in glob(pattern) ]
-    dcm_folders = set([ os.path.dirname(os.path.realpath(f)) for f in dcms])
+    dicoms = [ dcm for pattern in dcm_pattern for dcm in glob(pattern, recursive=False) ]
+    # dcm_folders = set([ os.path.dirname(os.path.realpath(f)) for f in dcms])
+    # dcm_folders = set([ os.path.dirname(f) for f in dcms])
+    real_paths = []
+    org_paths = []
+
+    # change this to make a set of dictionaries
+    for dcm in dicoms:
+        dcm_org_path = os.path.dirname(dcm)
+        dcm_real_path = os.path.dirname(os.path.realpath(dcm))
+        if not dcm_real_path in real_paths:
+            real_paths.append(dcm_real_path)
+            org_paths.append(dcm_org_path)
+
+    print(real_paths)
+    print(org_paths)
 
     rows = set()
-    for folder in dcm_folders:
-        folder = re.sub('(/)\d+(/DICOM)', r'\1*\2', folder, flags=re.IGNORECASE)
-        sub = match_sub.search(folder).group(1)
-        ses = match_ses.search(folder).group(1) if match_ses else None
+    for folder, org_path in zip(real_paths,org_paths):
+        print('folder = {}'.format(folder))
+        folder = re.sub(r'(/)\d+(/DICOM)', r'\1*\2', folder, flags=re.IGNORECASE)
+        print('folder after re.sub = {}'.format(folder))
+        sub = match_sub.search(org_path).group(1)
+        ses = match_ses.search(org_path).group(1) if match_ses else None
         if pad_session and ses.isdigit():
             ses = ses.zfill(pad_session)
         rows.add((folder, sub, ses))
 
-    np.savetxt(outfile, list(rows), fmt='%s', delimiter='\t')
+    np.savetxt(outfile, list(rows), fmt='%s', delimiter=',')
 
 
 if __name__ == '__main__':
