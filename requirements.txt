@@ -1,0 +1,9 @@
+numpy
+pandas
+pydicom
+pylint
+pytz
+requests
+scipy
+# vnav
+wrapt
