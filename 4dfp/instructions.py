@@ -9,7 +9,7 @@ from params_common import write_file
 from sys import exit, stderr
 
 scan_number_pattern = '(?:\w*\.){3}(\d+)\..*'
-sorted_path_template = 'study{}/*.dcm'
+sorted_path_template = 'study{}/*.*'
 flat_path_template = '*/*.dcm'
 nested_path_template = '*/{}/DICOM/*.dcm'
 
