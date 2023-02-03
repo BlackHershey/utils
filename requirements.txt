@@ -1,9 +1,7 @@
-numpy
-pandas
-pydicom
-pylint
-pytz
-requests
-scipy
-# vnav
-wrapt
+numpy==1.24.1
+pandas==1.5.3
+pydicom==2.3.1
+pylint==2.16.1
+pytz==2022.7.1
+scipy==1.10.0
+wrapt==1.14.1
