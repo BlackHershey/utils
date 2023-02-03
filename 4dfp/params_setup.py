@@ -7,7 +7,6 @@ import re
 
 from instructions import find_dicoms
 from params_common import write_file
-from os import chdir, getcwd, listdir
 from os.path import dirname, islink, join
 from subprocess import call
 
@@ -32,13 +31,15 @@ def read_studies_file(studies_file):
 
 
 # generate params file from studies file mappings
-def gen_params_file(patid, study_config, sort=False, inpath='.', duplicates=None, day1_patid=None, outfile=None):
+def gen_params_file(patid, study_config, inpath='.', duplicates=None, day1_patid=None, outfile=None, verbose=False):
 	with open(study_config) as config_file:
 			config = json.load(config_file)
 
 	studies_file = next(iter(glob.glob('*.studies.txt')), 0)
+	print('Found studies file {}'.format(studies_file))
 
 	if not studies_file:
+		print('WARNING: Did not find a .studies.txt file for {}'.format(patid))
 		dcms = find_dicoms(inpath=inpath)
 		if not dcms:
 			print('Error: no dicoms found under current directory. If your dicoms are stored elsewhere, try the --inpath flag')
@@ -68,7 +69,7 @@ def gen_params_file(patid, study_config, sort=False, inpath='.', duplicates=None
 	}
 
 	scan_mappings = { k: v for k,v in config['series_desc_mapping'].items() if v != '' }
-	print(scan_mappings)
+	# print(scan_mappings)
 	for val in scan_mappings.values():
 		params[val] = []
 
@@ -82,18 +83,24 @@ def gen_params_file(patid, study_config, sort=False, inpath='.', duplicates=None
 
 		series_desc_matches = [ key for key in scan_mappings.keys() if fnmatch.fnmatch(series_desc, key) ]
 		if not series_desc_matches:
-			print('Scan type not found in config:', series_desc)
+			if verbose:
+				print('series {}: (NOT FOUND IN CONFIG, {})'.format(scan_number,series_desc))
 			continue
 		series_key = series_desc_matches[0]
+		var = scan_mappings[series_key] # variable is value of series description in config
+		if verbose:
+			print('series {}: ({}, {})'.format(scan_number,scan_mappings[series_key],series_desc))
 
 		# remove unwanted duplicate (non-functional) images if present
 		if duplicates and series_key not in irun_mapping.keys():
+			find_dicoms(scan_number, True)
 			img_type = pydicom.read_file(find_dicoms(scan_number, True)[0]).ImageType
-			if  ('NORM' in img_type and duplicates == 'orig') or ('NORM' not in img_type and duplicates == 'norm'):
+			if (('NORM' in img_type and duplicates == 'orig') or ('NORM' not in img_type and duplicates == 'norm')) and not 'pcasl' in var and not 'sefm' in var:
+				if verbose:
+					print('skipping {}: {} # SEE NORM/IRUN RULES'.format(scan_number,series_desc))
 				continue
 
-		var = scan_mappings[series_key] # variable is value of series description in config
-		params[var].append(scan_number) # set variable to the current scan number
+		params[var].append(scan_number) # append the current scan number
 
 		# add appropriate numbered label to irun list
 		irun_matches = [ re.match(item, series_key) for item in irun_series ]
