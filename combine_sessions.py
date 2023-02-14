@@ -9,10 +9,9 @@ def combine_dicom_sessions(input_dir, output_dir):
 
     # create empty pydicom FileSet
     fs_in = FileSet()
-    fs_out = FileSet()
 
     # Add all input images to FileSet
-    for path, subdirs, files in os.walk(input_dir):
+    for path, _, files in os.walk(input_dir):
         for name in files:
             dcmfilepath = pathlib.PurePath(path, name)
             try:
