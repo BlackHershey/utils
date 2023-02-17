@@ -35,6 +35,9 @@ def combine_dicom_sessions(input_dir, output_dir):
         for dicom_file in dicom_file_instances:
             ds = dicom_file.load()
 
+            # set StudyNumber to 1
+            ds.StudyID = "1"
+
             # set StudyInstanceUID to first StudyInstanceUID
             ds.StudyInstanceUID = first_study_uid
 
