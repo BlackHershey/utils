@@ -1,7 +1,8 @@
-numpy==1.24.1
-pandas==1.5.3
-pydicom==2.3.1
-pylint==2.16.1
-pytz==2022.7.1
-scipy==1.10.0
-wrapt==1.14.1
+numpy==1.26.2
+pandas==2.1.4
+pydicom==2.4.3
+pylint==3.0.3
+pytz==2023.3.post1
+scipy==1.11.4
+wrapt==1.16.0
+xnat==0.5.3
