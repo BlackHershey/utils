@@ -16,7 +16,8 @@ nested_path_template = '*/{}/DICOM/*.dcm'
 
 def find_dicoms(scan_number='*', sorted=False, inpath='.'):
 	if sorted:
-		return glob.glob(os.path.join(inpath, sorted_path_template.format(scan_number)))
+		search_path = os.path.join(inpath, sorted_path_template.format(scan_number))
+		return glob.glob(search_path)
 	else:
 		flat_files = [ f for f in glob.glob(os.path.join(inpath, flat_path_template)) if not f.startswith('study') ]
 		if scan_number != '*':
