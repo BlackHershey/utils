@@ -2,6 +2,7 @@ import argparse
 import os
 import pathlib
 from pydicom.fileset import FileSet
+from pydicom import dcmread
 
 def combine_dicom_sessions(input_dir, output_dir, patient_info=None):
     print('Input directory = {}'.format(input_dir))
@@ -21,7 +22,15 @@ def combine_dicom_sessions(input_dir, output_dir, patient_info=None):
             try:
                 fs_in.add(dcmfilepath)
             except:
-                print('WARNING: Not a DICOM file: {}'.format(dcmfilepath))
+                try:
+                    ds=dcmread(dcmfilepath)
+                    if not 'PatientName' in ds or ds.PatientName=='':
+                        ds.PatientName='missing'
+                    if not 'PatientID' in ds or ds.PatientID=='':
+                        ds.PatientID='missing'
+                    fs_in.add(ds)
+                except:
+                    print('WARNING: Not a DICOM file: {}'.format(dcmfilepath))
 
     print(fs_in)
 
